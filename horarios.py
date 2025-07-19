@@ -36,29 +36,6 @@ materias_agrupadas = materias.groupby(['ASIGNATURA', 'GRUPO']).agg({
 
 
 # === FUNCIONES DE APOYO ===
-def cargar_datos():
-    materias = pd.read_excel("materias_ofertadas.xlsx")
-    pensum = pd.read_excel("pensum_academico_usc.xlsx")
-    contactos = pd.read_excel("FACULTADES.xlsx")
-    
-    materias.rename(columns={'HORARIO_FIN': 'HORA_FIN'}, inplace=True)
-    materias.columns = materias.columns.str.strip().str.upper().str.replace(' ', '_')
-    
-    materias_agrupadas = materias.groupby(['ASIGNATURA', 'GRUPO']).agg({
-        'PROGRAMA': 'first',
-        'PENSUM': 'first',
-        'NIVEL': 'first',
-        'AULA': 'first',
-        'CUPO': 'first',
-        'INSCRITOS': 'first',
-        'DOCENTE': 'first',
-        'DIA': lambda x: ', '.join(sorted(set(x.dropna()))),
-        'HORA_INICIO': lambda x: ', '.join(sorted(set(x.dropna().astype(str)))) if 'HORA_INICIO' in materias.columns else '',
-        'HORARIO_FIN': lambda x: ', '.join(sorted(set(x.dropna().astype(str)))) if 'HORARIO_FIN' in materias.columns else ''
-    }).reset_index()
-
-    return pensum, materias_agrupadas, contactos
-
 def normalizar_texto(texto):
     if isinstance(texto, str):
         texto = texto.strip().upper()
