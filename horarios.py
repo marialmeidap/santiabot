@@ -12,6 +12,9 @@ pensum=pd.read_excel("pensum_academico_usc.xlsx")
 #Cargar el archivo de facultad
 contactos_df = pd.read_excel("FACULTADES.xlsx")
 
+materias.rename(columns={'HORARIO_FIN': 'HORA_FIN'}, inplace=True)
+
+
 # 🔧 1. Limpiar nombres de columnas (sin errores de espacios ni tildes)
 materias.columns = materias.columns.str.strip().str.upper().str.replace(' ', '_')
 
