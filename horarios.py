@@ -1,3 +1,4 @@
+# horarios.py
 # -*- coding: utf-8 -*-
 """
 Created on Sat Jul 19 13:51:31 2025
@@ -9,33 +10,34 @@ import matplotlib.pyplot as plt
 import unicodedata
 from datetime import datetime
 
-# === CARGA DE DATOS ===
+# === 1. CARGA Y LIMPIEZA DE DATOS ===
+
 materias = pd.read_excel("materias_ofertadas.xlsx")
 pensum = pd.read_excel("pensum_academico_usc.xlsx")
 contactos_df = pd.read_excel("FACULTADES.xlsx")
 
-# Arreglar nombre de columna
+# Normalizar nombres de columnas
 materias.rename(columns={'HORARIO_FIN': 'HORA_FIN'}, inplace=True)
-
-# Limpiar nombres de columnas
 materias.columns = materias.columns.str.strip().str.upper().str.replace(' ', '_')
+print("🧾 Nombres reales de columnas:")
+print(materias.columns.tolist())
 
-# Agrupar materias por ASIGNATURA y GRUPO
+# Agrupación limpia
 materias_agrupadas = materias.groupby(['ASIGNATURA', 'GRUPO']).agg({
     'PROGRAMA': 'first',
     'PENSUM': 'first',
     'NIVEL': 'first',
-    'AULA': lambda x: ', '.join(sorted(set(x.dropna().astype(str)))),
+    'AULA': 'first',
     'CUPO': 'first',
     'INSCRITOS': 'first',
+    'DOCENTE': 'first',
     'DIA': lambda x: ', '.join(sorted(set(x.dropna().astype(str)))),
-    'HORA_INICIO': lambda x: ', '.join(sorted(set(x.dropna().astype(str)))),
-    'HORA_FIN': lambda x: ', '.join(sorted(set(x.dropna().astype(str)))),
-    'DOCENTE': lambda x: ', '.join(sorted(set(x.dropna().astype(str))))
+    'HORA_INICIO': lambda x: ', '.join(sorted(set(x.dropna().astype(str)))) if 'HORA_INICIO' in materias.columns else '',
+    'HORA_FIN': lambda x: ', '.join(sorted(set(x.dropna().astype(str)))) if 'HORA_FIN' in materias.columns else ''
 }).reset_index()
 
+# === 2. UTILIDADES ===
 
-# === FUNCIONES DE APOYO ===
 def normalizar_texto(texto):
     if isinstance(texto, str):
         texto = texto.strip().upper()
@@ -61,11 +63,11 @@ def horas_solapan(hora_ini1, hora_fin1, hora_ini2, hora_fin2):
         print("⛔ Error comparando horas:", e)
         return False
 
+# === 3. RECOMENDADOR DE HORARIOS ===
 
-# === FUNCIONALIDAD PRINCIPAL ===
 def recomendar_horarios(pensum, materias_agrupadas):
-    pensum.columns = [col.upper().strip() for col in pensum.columns]
-    materias_agrupadas.columns = [col.upper().strip() for col in materias_agrupadas.columns]
+    pensum.columns = pensum.columns.str.strip().str.upper()
+    materias_agrupadas.columns = materias_agrupadas.columns.str.strip().str.upper()
     pensum['MATERIA_NORM'] = pensum['MATERIA'].apply(normalizar_texto)
     pensum['CARRERA_NORM'] = pensum['CARRERA'].apply(normalizar_texto)
     materias_agrupadas['ASIGNATURA_NORM'] = materias_agrupadas['ASIGNATURA'].apply(normalizar_texto)
@@ -168,18 +170,12 @@ def recomendar_horarios(pensum, materias_agrupadas):
                 print(f"{idx + 1}. {alt['DIA']} de {alt['HORA_INICIO']} a {alt['HORA_FIN']} | "
                       f"GRUPO {alt['GRUPO']} | AULA {alt['AULA']} | DOCENTE {alt['DOCENTE']}")
 
-            seleccion_valida = False
-            while not seleccion_valida:
+            while True:
                 seleccion = input(f"👉 Ingresa el número de la opción que deseas para {materia} (1-{len(opciones_compatibles)}): ")
-                if seleccion.isdigit():
-                    seleccion = int(seleccion)
-                    if 1 <= seleccion <= len(opciones_compatibles):
-                        seleccion_valida = True
-                        mejor_opcion = opciones_compatibles[seleccion - 1]
-                    else:
-                        print("❌ Número fuera de rango. Intenta de nuevo.")
-                else:
-                    print("❌ Entrada inválida. Escribe solo un número.")
+                if seleccion.isdigit() and 1 <= int(seleccion) <= len(opciones_compatibles):
+                    mejor_opcion = opciones_compatibles[int(seleccion) - 1]
+                    break
+                print("❌ Entrada inválida. Intenta de nuevo.")
 
             for dia in normalizar_texto(mejor_opcion["DIA"]).split(","):
                 horarios_ocupados.append({
@@ -187,6 +183,7 @@ def recomendar_horarios(pensum, materias_agrupadas):
                     "INI": mejor_opcion["HORA_INICIO"],
                     "FIN": mejor_opcion["HORA_FIN"]
                 })
+
             recomendadas.append({
                 "ASIGNATURA": mejor_opcion["ASIGNATURA"],
                 "GRUPO": mejor_opcion["GRUPO"],
@@ -214,11 +211,10 @@ def recomendar_horarios(pensum, materias_agrupadas):
     print(horario[["ASIGNATURA", "GRUPO", "DIA", "HORA_INICIO", "HORA_FIN", "NOTA"]])
     return horario, programa_norm
 
+# === 4. VISUALIZADOR DE HORARIO ===
 
-# === VISUALIZADOR DE HORARIO ===
 def visualizar_horario(horario_df, programa, contactos_df):
     contactos_df.columns = contactos_df.columns.str.upper().str.strip()
-
     horario_exp = horario_df.copy()
     horario_exp = horario_exp.assign(DIA=horario_exp["DIA"].str.split(",")).explode("DIA").reset_index(drop=True)
     horario_exp["DIA"] = horario_exp["DIA"].str.strip().str.upper()
@@ -273,7 +269,6 @@ def visualizar_horario(horario_df, programa, contactos_df):
         row_contacto = contactos_df[contactos_df["PROGRAMA"] == programa.upper()]
         correo = row_contacto["CORREO"].values[0] if not row_contacto.empty else "facultad@usc.edu.co"
         pbx = row_contacto["PBX"].values[0] if "PBX" in row_contacto.columns and not row_contacto.empty else "(602) 5183000"
-
         mensaje = f"△ Las siguientes materias no fueron ofertadas: {lista_materias}.\n"
         mensaje += f"📩 Comunícate con la facultad al correo: {correo} | ☎ PBX: {pbx}"
         plt.figtext(0.5, -0.05, mensaje, wrap=True, ha='center', fontsize=10, color='red')
@@ -281,7 +276,7 @@ def visualizar_horario(horario_df, programa, contactos_df):
     plt.tight_layout()
     plt.show()
 
+from horarios import recomendar_horarios, visualizar_horario
 
-# === EJECUCIÓN ===
 horario_sugerido, programa_estudiante = recomendar_horarios(pensum, materias_agrupadas)
 visualizar_horario(horario_sugerido, programa_estudiante, contactos_df)
