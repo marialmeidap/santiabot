@@ -6,7 +6,7 @@ Created on Sat Jul 19 14:02:17 2025
 """
 
 import streamlit as st
-from horarios import recomendar_horarios, visualizar_horario, cargar_datos as cargar_horarios
+from horarios import recomendar_horarios, visualizar_horario
 from tramites import asistente_tramites, cargar_datos as cargar_tramites
 
 # Inicialización de estado
