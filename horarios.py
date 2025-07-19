@@ -1,53 +1,41 @@
 # -*- coding: utf-8 -*-
 """
 Created on Sat Jul 19 13:51:31 2025
-
-@author: Maria Almeida Pizarr
+@author: Maria Almeida Pizarro
 """
-import pandas as pd
-#Cargar el archivo excel de materias ofertadas
-materias=pd.read_excel("materias_ofertadas.xlsx")
-#Cargar el archivo excel de pensum por carrera
-pensum=pd.read_excel("pensum_academico_usc.xlsx")
-#Cargar el archivo de facultad
-contactos_df = pd.read_excel("FACULTADES.xlsx")
-
-materias.rename(columns={'HORARIO_FIN': 'HORA_FIN'}, inplace=True)
-
-
-# 🔧 1. Limpiar nombres de columnas (sin errores de espacios ni tildes)
-materias.columns = materias.columns.str.strip().str.upper().str.replace(' ', '_')
-
-# 🧪 2. Revisar los nombres actuales para evitar errores de KeyError
-print("🧾 Nombres reales de columnas:")
-print(materias.columns.tolist())
-
-# ✅ 3. Agrupar las materias por ASIGNATURA + GRUPO combinando horarios
-materias_agrupadas = materias.groupby(['ASIGNATURA', 'GRUPO']).agg({
-    'PROGRAMA': 'first',
-    'PENSUM': 'first',
-    'NIVEL': 'first',
-    'AULA': 'first',
-    'CUPO': 'first',
-    'INSCRITOS': 'first',
-    'DOCENTE': 'first',
-    'DIA': lambda x: ', '.join(sorted(set(x.dropna()))),
-    'HORA_INICIO': lambda x: ', '.join(sorted(set(x.dropna().astype(str)))) if 'HORA_INICIO' in materias.columns else '',
-    'HORARIO_FIN': lambda x: ', '.join(sorted(set(x.dropna().astype(str)))) if 'HORARIO_FIN' in materias.columns else ''
-}).reset_index()
-
-# 👀 4. Verificar si una asignatura específica está bien agrupada
-materias_agrupadas[
-    (materias_agrupadas['ASIGNATURA'] == 'IDIOMA EXTRANJERO II') &
-    (materias_agrupadas['GRUPO'] == '2B107')
-]
 
 import pandas as pd
 import matplotlib.pyplot as plt
 import unicodedata
 from datetime import datetime
 
-# === FUNCIONES UTILITARIAS ===
+# === CARGA DE DATOS ===
+materias = pd.read_excel("materias_ofertadas.xlsx")
+pensum = pd.read_excel("pensum_academico_usc.xlsx")
+contactos_df = pd.read_excel("FACULTADES.xlsx")
+
+# Arreglar nombre de columna
+materias.rename(columns={'HORARIO_FIN': 'HORA_FIN'}, inplace=True)
+
+# Limpiar nombres de columnas
+materias.columns = materias.columns.str.strip().str.upper().str.replace(' ', '_')
+
+# Agrupar materias por ASIGNATURA y GRUPO
+materias_agrupadas = materias.groupby(['ASIGNATURA', 'GRUPO']).agg({
+    'PROGRAMA': 'first',
+    'PENSUM': 'first',
+    'NIVEL': 'first',
+    'AULA': lambda x: ', '.join(sorted(set(x.dropna().astype(str)))),
+    'CUPO': 'first',
+    'INSCRITOS': 'first',
+    'DIA': lambda x: ', '.join(sorted(set(x.dropna().astype(str)))),
+    'HORA_INICIO': lambda x: ', '.join(sorted(set(x.dropna().astype(str)))),
+    'HORA_FIN': lambda x: ', '.join(sorted(set(x.dropna().astype(str)))),
+    'DOCENTE': lambda x: ', '.join(sorted(set(x.dropna().astype(str))))
+}).reset_index()
+
+
+# === FUNCIONES DE APOYO ===
 def normalizar_texto(texto):
     if isinstance(texto, str):
         texto = texto.strip().upper()
@@ -73,7 +61,8 @@ def horas_solapan(hora_ini1, hora_fin1, hora_ini2, hora_fin2):
         print("⛔ Error comparando horas:", e)
         return False
 
-# === FUNCIÓN PRINCIPAL DEL RECOMENDADOR ===
+
+# === FUNCIONALIDAD PRINCIPAL ===
 def recomendar_horarios(pensum, materias_agrupadas):
     pensum.columns = [col.upper().strip() for col in pensum.columns]
     materias_agrupadas.columns = [col.upper().strip() for col in materias_agrupadas.columns]
@@ -132,7 +121,7 @@ def recomendar_horarios(pensum, materias_agrupadas):
                 "GRUPO": "NO OFERTADA",
                 "DIA": "—",
                 "HORA_INICIO": "—",
-                "HORARIO_FIN": "—",
+                "HORA_FIN": "—",
                 "AULA": "—",
                 "DOCENTE": "—",
                 "NOTA": "📌 No se ofertó este semestre"
@@ -142,7 +131,7 @@ def recomendar_horarios(pensum, materias_agrupadas):
         opciones_compatibles = []
         for _, op in oferta.iterrows():
             hora_ini = op["HORA_INICIO"]
-            hora_fin = op["HORARIO_FIN"]
+            hora_fin = op["HORA_FIN"]
             if ":" not in str(hora_ini) or ":" not in str(hora_fin):
                 continue
 
@@ -176,7 +165,7 @@ def recomendar_horarios(pensum, materias_agrupadas):
         if opciones_compatibles:
             print(f"\n📌 Opciones disponibles para {materia}:")
             for idx, alt in enumerate(opciones_compatibles):
-                print(f"{idx + 1}. {alt['DIA']} de {alt['HORA_INICIO']} a {alt['HORARIO_FIN']} | "
+                print(f"{idx + 1}. {alt['DIA']} de {alt['HORA_INICIO']} a {alt['HORA_FIN']} | "
                       f"GRUPO {alt['GRUPO']} | AULA {alt['AULA']} | DOCENTE {alt['DOCENTE']}")
 
             seleccion_valida = False
@@ -196,14 +185,14 @@ def recomendar_horarios(pensum, materias_agrupadas):
                 horarios_ocupados.append({
                     "DIA": dia.strip(),
                     "INI": mejor_opcion["HORA_INICIO"],
-                    "FIN": mejor_opcion["HORARIO_FIN"]
+                    "FIN": mejor_opcion["HORA_FIN"]
                 })
             recomendadas.append({
                 "ASIGNATURA": mejor_opcion["ASIGNATURA"],
                 "GRUPO": mejor_opcion["GRUPO"],
                 "DIA": mejor_opcion["DIA"],
                 "HORA_INICIO": mejor_opcion["HORA_INICIO"],
-                "HORARIO_FIN": mejor_opcion["HORARIO_FIN"],
+                "HORA_FIN": mejor_opcion["HORA_FIN"],
                 "AULA": mejor_opcion["AULA"],
                 "DOCENTE": mejor_opcion["DOCENTE"],
                 "NOTA": f"✅ Opción elegida entre {len(opciones_compatibles)} disponibles."
@@ -214,7 +203,7 @@ def recomendar_horarios(pensum, materias_agrupadas):
                 "GRUPO": "NO COMPATIBLE",
                 "DIA": "—",
                 "HORA_INICIO": "—",
-                "HORARIO_FIN": "—",
+                "HORA_FIN": "—",
                 "AULA": "—",
                 "DOCENTE": "—",
                 "NOTA": "⚠️ No se encontró horario compatible"
@@ -222,34 +211,29 @@ def recomendar_horarios(pensum, materias_agrupadas):
 
     horario = pd.DataFrame(recomendadas)
     print("\n📋 Resultado de recomendación:\n")
-    print(horario[["ASIGNATURA", "GRUPO", "DIA", "HORA_INICIO", "HORARIO_FIN", "NOTA"]])
+    print(horario[["ASIGNATURA", "GRUPO", "DIA", "HORA_INICIO", "HORA_FIN", "NOTA"]])
     return horario, programa_norm
-import pandas as pd
-import matplotlib.pyplot as plt
 
+
+# === VISUALIZADOR DE HORARIO ===
 def visualizar_horario(horario_df, programa, contactos_df):
-    # Normalizar columnas
     contactos_df.columns = contactos_df.columns.str.upper().str.strip()
 
-    # Expandir materias con múltiples días (LUN, MIE → dos filas)
     horario_exp = horario_df.copy()
     horario_exp = horario_exp.assign(DIA=horario_exp["DIA"].str.split(",")).explode("DIA").reset_index(drop=True)
     horario_exp["DIA"] = horario_exp["DIA"].str.strip().str.upper()
 
-    # Crear figura y ejes
     fig, ax = plt.subplots(figsize=(14, 7))
     ax.set_title("📒 Horario sugerido de materias", fontsize=14)
 
-    # Mapas auxiliares
     dias_semana = {"LUN": 0, "MAR": 1, "MIE": 2, "JUE": 3, "VIE": 4, "SAB": 5}
     colores = ["#FFA07A", "#90EE90", "#87CEFA", "#D8BFD8", "#FFD700", "#CD5C5C"]
 
-    # Dibujar barras
     for i, row in horario_exp.iterrows():
         if row["DIA"] in dias_semana and row["HORA_INICIO"] != "—":
             try:
                 inicio = int(row["HORA_INICIO"].split(":")[0])
-                fin = int(row["HORARIO_FIN"].split(":")[0])
+                fin = int(row["HORA_FIN"].split(":")[0])
                 dia = dias_semana[row["DIA"]]
                 ax.barh(
                     y=range(inicio, fin),
@@ -272,7 +256,6 @@ def visualizar_horario(horario_df, programa, contactos_df):
             except:
                 continue
 
-    # Configurar ejes
     ax.set_yticks(range(6, 22))
     ax.set_yticklabels([f"{h}:00" for h in range(6, 22)])
     ax.set_xticks(range(6))
@@ -284,7 +267,6 @@ def visualizar_horario(horario_df, programa, contactos_df):
 
     plt.grid(True, axis="y", linestyle="--", alpha=0.3)
 
-    # Materias no ofertadas
     no_ofertadas = horario_df[horario_df["NOTA"].str.contains("no se ofertó", case=False)]
     if not no_ofertadas.empty:
         lista_materias = ", ".join(no_ofertadas["ASIGNATURA"].tolist())
@@ -300,6 +282,6 @@ def visualizar_horario(horario_df, programa, contactos_df):
     plt.show()
 
 
-
+# === EJECUCIÓN ===
 horario_sugerido, programa_estudiante = recomendar_horarios(pensum, materias_agrupadas)
 visualizar_horario(horario_sugerido, programa_estudiante, contactos_df)
